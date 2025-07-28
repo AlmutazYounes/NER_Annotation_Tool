@@ -1,0 +1,687 @@
+{% extends "base.html" %}
+
+{% block title %}Annotate - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Professional Annotation Workspace -->
+    <div class="annotation-workspace">
+        <!-- Main Annotation Area -->
+        <div class="annotation-main">
+            <!-- Professional Toolbar -->
+            <div class="annotation-toolbar">
+                <div class="toolbar-section">
+                    <h5 style="margin: 0; font-weight: 700; color: var(--gray-800);">
+                        <i class="fas fa-edit me-2" style="color: var(--primary-500);"></i>
+                        {{ project.name }}
+                    </h5>
+                </div>
+
+                <div class="toolbar-section">
+                    <div class="sentence-counter">
+                        {{ sentence_index + 1 }} / {{ total_sentences }}
+                    </div>
+
+                    <div class="progress-indicator">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: {{ ((sentence_index + 1) / total_sentences * 100) if total_sentences > 0 else 0 }}%;"></div>
+                        </div>
+                        <small style="color: var(--gray-600); font-weight: 500;">
+                            {{ "%.1f"|format(((sentence_index + 1) / total_sentences * 100) if total_sentences > 0 else 0) }}%
+                        </small>
+                    </div>
+                </div>
+
+                <div class="toolbar-section">
+                    <div class="nav-button-group">
+                        <button class="nav-button"
+                                onclick="previousSentence({{ project.id }}, {{ sentence_index }})"
+                                {% if sentence_index == 0 %}disabled{% endif %}>
+                            <i class="fas fa-chevron-left"></i>
+                            Previous
+                        </button>
+
+                        <button class="nav-button"
+                                onclick="skipSentence({{ project.id }}, {{ sentence_index }}, {{ total_sentences }})">
+                            <i class="fas fa-forward"></i>
+                            Skip
+                        </button>
+
+                        <button class="nav-button primary"
+                                onclick="nextSentence({{ project.id }}, {{ sentence_index }}, {{ total_sentences }})"
+                                {% if sentence_index >= total_sentences - 1 %}disabled{% endif %}>
+                            Next
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sentence Workspace -->
+            <div class="sentence-workspace">
+                <!-- Main Sentence Container -->
+                <div class="sentence-container active" id="sentence-container">
+                    <div class="sentence-text" id="sentenceText">
+                        {{ sentence.text }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Assistant Panel (moved from sidebar) -->
+            {% if project.llm_enabled %}
+            <div class="ai-assistant-section">
+                <div class="ai-assistant-panel-minimal">
+                    <div class="ai-header-minimal">
+                        <span class="ai-title-minimal">
+                            <i class="fas fa-robot me-1"></i>AI Assistant
+                        </span>
+                        <span class="ai-cost-minimal" id="aiCostDisplay">$0.00</span>
+                    </div>
+
+                    <div class="ai-controls-minimal">
+                        <div class="ai-toggle-minimal">
+                            <input class="form-check-input" type="checkbox" id="autoAiToggle"
+                                   {% if project.auto_ai_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="autoAiToggle">Auto AI</label>
+                        </div>
+                        <button id="askLlmBtn" class="btn btn-ai-minimal">
+                            <i class="fas fa-magic me-1"></i>Suggest
+                        </button>
+                    </div>
+
+                    <!-- Collapsible cost estimation -->
+                    <div id="costEstimationDisplay" class="cost-estimation-minimal" style="display: none;">
+                        <div class="cost-summary-minimal">
+                            <span>Current: <strong id="currentCostValue">$0.00</strong></span>
+                            <span>Remaining: <strong id="estimatedRemainingValue">$0.00</strong></span>
+                            <span>Total: <strong id="totalProjectedValue">$0.00</strong></span>
+                        </div>
+                        <small class="estimation-note-minimal" id="estimationNote"></small>
+                    </div>
+
+                    <div id="llmLoading" class="ai-loading" style="display: none;">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <small class="text-muted ms-2">Getting AI suggestions...</small>
+                    </div>
+
+                    <div id="llmError" class="alert alert-danger" style="display: none;">
+                        <!-- Error messages will be shown here -->
+                    </div>
+
+                    <div id="llmSuggestions" class="ai-suggestions" style="display: none;">
+                        <div class="suggestions-header mb-3">
+                            <small class="text-muted">AI Suggestions - Click <i class="fas fa-check text-success"></i> to accept or <i class="fas fa-times text-danger"></i> to reject:</small>
+                        </div>
+                        <div id="suggestionsList" class="suggestions-grid">
+                            <!-- Suggestions will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Professional Sidebar -->
+        <div class="annotation-sidebar">
+            <!-- Entity Palette -->
+            <div class="sidebar-section">
+                <div class="sidebar-header">
+                    <i class="fas fa-palette"></i>
+                    Entity Types
+                </div>
+                <div class="sidebar-content">
+                    <div class="entity-palette">
+                        {% for tag in project.entity_tags %}
+                            <div class="entity-tag"
+                                 style="background-color: {{ tag.color }}; color: white;"
+                                 onclick="selectEntityType('{{ tag.name }}', '{{ tag.color }}')"
+                                 data-entity="{{ tag.name }}"
+                                 data-color="{{ tag.color }}">
+                                {{ tag.name }}
+                            </div>
+        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+        <!-- Current Annotations -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Current Annotations
+                    <span class="badge bg-primary ms-2">{{ annotations|length }}</span>
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="annotationsList" class="annotations-list">
+                    {% if annotations %}
+                        {% for annotation in annotations %}
+                            <div class="annotation-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge bg-primary me-2">{{ annotation.entity_label }}</span>
+                                    <span>"{{ annotation.annotated_text }}"</span>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="deleteAnnotation({{ annotation.id }})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Pass data to JavaScript
+window.projectId = {{ project.id }};
+window.currentSentenceIndex = {{ sentence_index }};
+window.totalSentences = {{ total_sentences }};
+window.existingAnnotations = {{ annotations|tojson }};
+
+// Initialize annotation manager when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing annotation interface...');
+
+    const sentenceElement = document.getElementById('sentenceText');
+    const entityTags = {{ project.entity_tags|tojson }};
+    const sentenceId = {{ sentence.id }};
+
+    console.log('Sentence element:', sentenceElement);
+    console.log('Entity tags:', entityTags);
+    console.log('Sentence ID:', sentenceId);
+
+    if (sentenceElement && entityTags && sentenceId) {
+        window.annotationManager = new AnnotationManager(sentenceElement, entityTags, sentenceId);
+        console.log('Annotation manager initialized:', window.annotationManager);
+    } else {
+        console.error('Failed to initialize annotation manager - missing required elements');
+    }
+
+    // Initialize LLM functionality if enabled
+    {% if project.llm_enabled %}
+    console.log('Initializing LLM suggestions...');
+    initializeLLMSuggestions();
+    initializeAutoAI();
+    loadAICosts();
+    {% endif %}
+});
+
+{% if project.llm_enabled %}
+// Helper function to find text position in sentence
+function findTextPosition(text, searchText) {
+    // First try exact match
+    let index = text.indexOf(searchText);
+    if (index !== -1) {
+        return {
+            start: index,
+            end: index + searchText.length,
+            found: true
+        };
+    }
+
+    // If exact match fails, try case-insensitive
+    const lowerText = text.toLowerCase();
+    const lowerSearch = searchText.toLowerCase();
+    index = lowerText.indexOf(lowerSearch);
+    if (index !== -1) {
+        return {
+            start: index,
+            end: index + searchText.length,
+            found: true
+        };
+    }
+
+    // If still not found, try trimmed version
+    const trimmedSearch = searchText.trim();
+    index = text.indexOf(trimmedSearch);
+    if (index !== -1) {
+        return {
+            start: index,
+            end: index + trimmedSearch.length,
+            found: true
+        };
+    }
+
+    return null;
+}
+
+function initializeLLMSuggestions() {
+    const askLlmBtn = document.getElementById('askLlmBtn');
+    const llmLoading = document.getElementById('llmLoading');
+    const llmSuggestions = document.getElementById('llmSuggestions');
+    const llmError = document.getElementById('llmError');
+    const suggestionsList = document.getElementById('suggestionsList');
+
+    askLlmBtn.addEventListener('click', async function() {
+        const sentenceText = document.getElementById('sentenceText').textContent.trim();
+
+        if (!sentenceText) {
+            showLLMError('No sentence text found');
+            return;
+        }
+
+        // Show loading state
+        askLlmBtn.disabled = true;
+        askLlmBtn.innerHTML = '<i class="fas fa-spinner me-1"></i>Loading...';
+        llmLoading.style.display = 'block';
+        llmSuggestions.style.display = 'none';
+        llmError.style.display = 'none';
+
+        try {
+            console.log('Requesting LLM suggestions for:', sentenceText);
+
+            const response = await fetch('/api/llm-suggest', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    project_id: window.projectId,
+                    sentence_text: sentenceText
+                })
+            });
+
+            const data = await response.json();
+            console.log('LLM response:', data);
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to get suggestions');
+            }
+
+            console.log('Displaying suggestions:', data.suggestions);
+            displaySuggestions(data.suggestions, data.model_used);
+
+        } catch (error) {
+            showLLMError(error.message);
+        } finally {
+            askLlmBtn.disabled = false;
+            askLlmBtn.innerHTML = '<i class="fas fa-magic me-1"></i>Suggest';
+            llmLoading.style.display = 'none';
+        }
+    });
+}
+
+// Store suggestions globally for easier access
+window.currentSuggestions = [];
+
+function displaySuggestions(suggestions, modelUsed) {
+    const llmSuggestions = document.getElementById('llmSuggestions');
+    const suggestionsList = document.getElementById('suggestionsList');
+
+    // Store suggestions globally
+    window.currentSuggestions = suggestions;
+
+    if (suggestions.length === 0) {
+        suggestionsList.innerHTML = '<div class="text-center text-muted p-4"><i class="fas fa-search me-2"></i>No suggestions found for this sentence</div>';
+    } else {
+        suggestionsList.innerHTML = suggestions.map((suggestion, index) => {
+            const entityTag = {{ project.entity_tags|tojson }}.find(tag => tag.name === suggestion.label);
+            const color = entityTag ? entityTag.color : '#6c757d';
+
+            // Check if this suggestion would be a duplicate
+            const textPosition = findTextPosition(window.annotationManager.originalText, suggestion.text);
+            let isDuplicate = false;
+            let duplicateReason = '';
+
+            if (textPosition) {
+                const exactDuplicate = window.annotationManager.checkForDuplicateAnnotation(
+                    textPosition.start, textPosition.end, suggestion.label, suggestion.text
+                );
+                const overlapping = window.annotationManager.checkForOverlappingAnnotation(
+                    textPosition.start, textPosition.end, suggestion.label
+                );
+
+                if (exactDuplicate) {
+                    isDuplicate = true;
+                    duplicateReason = 'Already annotated';
+                } else if (overlapping && !window.annotationManager.isLegitimateOverlap(textPosition.start, textPosition.end, suggestion.label)) {
+                    isDuplicate = true;
+                    duplicateReason = `Overlaps with "${overlapping.annotated_text}"`;
+                }
+            }
+
+            const duplicateClass = isDuplicate ? 'suggestion-duplicate' : '';
+            const duplicateStyle = isDuplicate ? 'opacity: 0.6; background-color: #f8f9fa;' : '';
+
+            return `
+                <div class="suggestion-item ${duplicateClass}" data-suggestion-index="${index}" style="${duplicateStyle}">
+                    <div class="suggestion-content">
+                        <div class="suggestion-text">"${suggestion.text}"</div>
+                        <div class="suggestion-label" style="background-color: ${isDuplicate ? '#6c757d' : color};">
+                            ${suggestion.label}
+                        </div>
+                        <div class="suggestion-meta">
+                            <small class="text-muted">${isDuplicate ? duplicateReason : 'AI-suggested entity'}</small>
+                        </div>
+                    </div>
+                    <div class="suggestion-actions">
+                        ${isDuplicate ?
+                            '<button class="suggestion-btn disabled" disabled title="Cannot accept - already exists"><i class="fas fa-ban me-1"></i>Duplicate</button>' :
+                            '<button class="suggestion-btn accept" onclick="acceptSuggestion(' + index + ')" title="Accept this suggestion"><i class="fas fa-check me-1"></i>Accept</button>'
+                        }
+                        <button class="suggestion-btn reject" onclick="rejectSuggestion(${index})" title="Reject this suggestion">
+                            <i class="fas fa-times me-1"></i>Reject
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    llmSuggestions.style.display = 'block';
+}
+
+function acceptSuggestion(index) {
+    console.log('acceptSuggestion called with index:', index);
+
+    // Get the suggestion from the stored array
+    const suggestion = window.currentSuggestions[index];
+    if (!suggestion) {
+        console.error('No suggestion found at index:', index);
+        window.notifications.error('Error', 'Suggestion not found');
+        return;
+    }
+
+    console.log('Processing suggestion:', suggestion);
+
+    // Check if annotation manager exists
+    if (!window.annotationManager) {
+        console.error('Annotation manager not found');
+        window.notifications.error('Error', 'Annotation system not initialized');
+        return;
+    }
+
+    // Get the sentence text
+    const sentenceElement = document.getElementById('sentenceText');
+    if (!sentenceElement) {
+        console.error('Sentence element not found');
+        window.notifications.error('Error', 'Sentence text not found');
+        return;
+    }
+
+    // Use the original text from annotation manager to avoid issues with highlighted text
+    const textContent = window.annotationManager.originalText;
+    console.log('Original sentence text:', textContent);
+    console.log('Suggestion text:', suggestion.text);
+
+    // Find the text in the sentence and calculate positions
+    const textPosition = findTextPosition(textContent, suggestion.text);
+    if (textPosition === null) {
+        console.error('Could not find suggestion text in sentence');
+        window.notifications.error('Text Not Found', `Could not locate "${suggestion.text}" in the sentence`);
+        return;
+    }
+
+    console.log('Found text at positions:', textPosition.start, '-', textPosition.end);
+
+    // Update suggestion with calculated positions
+    suggestion.start = textPosition.start;
+    suggestion.end = textPosition.end;
+
+    // Check for duplicate annotation
+    const exactDuplicate = window.annotationManager.checkForDuplicateAnnotation(
+        suggestion.start, suggestion.end, suggestion.label, suggestion.text
+    );
+    if (exactDuplicate) {
+        window.notifications.warning('Duplicate Annotation', 'This annotation already exists in the sentence');
+        return;
+    }
+
+    // Check for overlapping annotation with same entity type
+    const overlapping = window.annotationManager.checkForOverlappingAnnotation(
+        suggestion.start, suggestion.end, suggestion.label
+    );
+    if (overlapping && !window.annotationManager.isLegitimateOverlap(suggestion.start, suggestion.end, suggestion.label)) {
+        window.notifications.warning('Overlapping Annotation', `This text overlaps with existing ${suggestion.label} annotation: "${overlapping.annotated_text}"`);
+        return;
+    }
+
+    if (textPosition.found) {
+        // Disable the button to prevent double-clicks
+        const acceptBtn = document.querySelector(`[data-suggestion-index="${index}"] .suggestion-btn.accept`);
+        if (acceptBtn) {
+            acceptBtn.disabled = true;
+            acceptBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+        }
+
+        // Save the annotation
+        const annotationData = {
+            sentence_id: window.annotationManager.sentenceId,
+            start_pos: suggestion.start,
+            end_pos: suggestion.end,
+            entity_label: suggestion.label,
+            annotated_text: suggestion.text
+        };
+
+        console.log('Sending annotation data:', annotationData);
+
+        // Call the save annotation API directly
+        fetch('/api/save_annotation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(annotationData)
+        })
+        .then(response => {
+            console.log('API response status:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('API response data:', data);
+            if (data.success) {
+                // Add the annotation to the display using the annotation manager
+                window.annotationManager.addAnnotationToDisplay(annotationData, data.annotation_id);
+                // Remove the suggestion from the list
+                rejectSuggestion(index);
+                // Show success notification
+                window.notifications.success('Success', 'Annotation added successfully');
+            } else {
+                console.error('API returned error:', data.error);
+                window.notifications.error('Failed to save annotation', data.error || 'Unknown error');
+                // Re-enable the button
+                if (acceptBtn) {
+                    acceptBtn.disabled = false;
+                    acceptBtn.innerHTML = '<i class="fas fa-check me-1"></i>Accept';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error saving annotation:', error);
+            window.notifications.error('Error saving annotation', error.message);
+            // Re-enable the button
+            if (acceptBtn) {
+                acceptBtn.disabled = false;
+                acceptBtn.innerHTML = '<i class="fas fa-check me-1"></i>Accept';
+            }
+        });
+    } else {
+        console.error('Text mismatch. Expected:', suggestion.text, 'Actual:', actualText);
+        window.notifications.error('Text Mismatch', `Suggestion text does not match expected position. Expected: "${suggestion.text}", Found: "${actualText}"`);
+    }
+}
+
+function rejectSuggestion(index) {
+    const suggestionItem = document.querySelector(`[data-suggestion-index="${index}"]`);
+    if (suggestionItem) {
+        // Add a fade-out animation
+        suggestionItem.style.opacity = '0.5';
+        suggestionItem.style.transform = 'scale(0.95)';
+
+        setTimeout(() => {
+            suggestionItem.remove();
+
+            // Check if there are any suggestions left
+            const suggestionsList = document.getElementById('suggestionsList');
+            if (suggestionsList.children.length === 0) {
+                suggestionsList.innerHTML = '<div class="text-center text-muted p-4"><i class="fas fa-check-circle me-2"></i>All suggestions reviewed</div>';
+            }
+        }, 200);
+    }
+}
+
+function showLLMError(message) {
+    const llmError = document.getElementById('llmError');
+    llmError.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>${message}`;
+    llmError.style.display = 'block';
+}
+
+function initializeAutoAI() {
+    const autoAiToggle = document.getElementById('autoAiToggle');
+
+    if (!autoAiToggle) {
+        console.log('Auto AI toggle not found');
+        return;
+    }
+
+    autoAiToggle.addEventListener('change', async function() {
+        try {
+            const response = await fetch(`/api/project/${window.projectId}/toggle-auto-ai`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    auto_ai_enabled: autoAiToggle.checked
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+                if (window.notifications) {
+                    window.notifications.success('Auto AI Updated', result.message);
+                }
+            } else {
+                if (window.notifications) {
+                    window.notifications.error('Update Failed', result.error);
+                }
+                // Revert toggle state
+                autoAiToggle.checked = !autoAiToggle.checked;
+            }
+        } catch (error) {
+            console.error('Auto AI toggle error:', error);
+            if (window.notifications) {
+                window.notifications.error('Update Error', error.message);
+            }
+            // Revert toggle state
+            autoAiToggle.checked = !autoAiToggle.checked;
+        }
+    });
+}
+
+async function loadAICosts() {
+    try {
+        const response = await fetch(`/api/project/${window.projectId}/ai-costs`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const costs = await response.json();
+
+        const costDisplay = document.getElementById('aiCostDisplay');
+        if (costDisplay && costs.total_cost) {
+            costDisplay.textContent = `$${costs.total_cost.toFixed(4)}`;
+            costDisplay.title = `Total requests: ${costs.total_requests}`;
+        }
+
+        // Load cost estimation
+        loadCostEstimation();
+    } catch (error) {
+        console.error('Failed to load AI costs:', error);
+        // Set default display if cost loading fails
+        const costDisplay = document.getElementById('aiCostDisplay');
+        if (costDisplay) {
+            costDisplay.textContent = '$0.00';
+        }
+    }
+}
+
+async function loadCostEstimation() {
+    try {
+        const response = await fetch(`/api/project/${window.projectId}/cost-estimation`);
+        const estimation = await response.json();
+
+        const costEstimationDisplay = document.getElementById('costEstimationDisplay');
+        const currentCostValue = document.getElementById('currentCostValue');
+        const estimatedRemainingValue = document.getElementById('estimatedRemainingValue');
+        const totalProjectedValue = document.getElementById('totalProjectedValue');
+        const estimationNote = document.getElementById('estimationNote');
+
+        // Check if elements exist before using them
+        if (!costEstimationDisplay || !currentCostValue || !estimatedRemainingValue || !totalProjectedValue || !estimationNote) {
+            console.log('Cost estimation elements not found, skipping display');
+            return;
+        }
+
+        if (estimation.has_usage_data && estimation.remaining_sentences > 0) {
+            currentCostValue.textContent = `$${estimation.current_cost.toFixed(4)}`;
+            estimatedRemainingValue.textContent = `$${estimation.estimated_remaining_cost.toFixed(4)}`;
+            totalProjectedValue.textContent = `$${estimation.estimated_total_cost.toFixed(4)}`;
+            estimationNote.textContent = `${estimation.remaining_sentences} sentences remaining`;
+
+            costEstimationDisplay.style.display = 'block';
+        } else if (estimation.remaining_sentences === 0) {
+            estimationNote.textContent = 'Project completed!';
+            costEstimationDisplay.style.display = 'block';
+            // Hide the breakdown for completed projects
+            const costSummary = document.querySelector('.cost-summary-minimal');
+            if (costSummary) costSummary.style.display = 'none';
+        } else {
+            estimationNote.textContent = 'No usage data yet';
+            costEstimationDisplay.style.display = 'block';
+            // Hide the breakdown when no usage data
+            const costSummary = document.querySelector('.cost-summary-minimal');
+            if (costSummary) costSummary.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Failed to load cost estimation:', error);
+        // Don't show error to user for cost estimation, it's not critical
+    }
+}
+
+// Override navigation functions to support auto AI
+function nextSentence(projectId, currentIndex, totalSentences) {
+    if (currentIndex < totalSentences - 1) {
+        const nextIndex = currentIndex + 1;
+        const autoAiToggle = document.getElementById('autoAiToggle');
+
+        if (autoAiToggle && autoAiToggle.checked) {
+            // Store the next navigation in session storage to trigger AI after page load
+            sessionStorage.setItem('triggerAutoAI', 'true');
+        }
+
+        navigateToSentence(projectId, nextIndex);
+    }
+}
+
+// Check for auto AI trigger on page load
+document.addEventListener('DOMContentLoaded', function() {
+    if (sessionStorage.getItem('triggerAutoAI') === 'true') {
+        sessionStorage.removeItem('triggerAutoAI');
+
+        // Wait a bit for the page to fully load, then trigger AI
+        setTimeout(() => {
+            const askLlmBtn = document.getElementById('askLlmBtn');
+            if (askLlmBtn) {
+                askLlmBtn.click();
+            }
+        }, 500);
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

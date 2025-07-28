@@ -1,0 +1,644 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} - Project Details{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="row">
+        <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1>
+                    <i class="fas fa-project-diagram me-2 text-primary"></i>
+                    {{ project.name }}
+                </h1>
+                <p class="text-muted mb-0">{{ project.description or 'No description provided' }}</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('project_analytics', project_id=project.id) }}"
+                   class="btn btn-outline-primary">
+                    <i class="fas fa-chart-bar me-2"></i>Analytics
+                </a>
+                <a href="{{ url_for('annotate', project_id=project.id, sentence_index=0) }}"
+                   class="btn btn-primary">
+                    <i class="fas fa-edit me-2"></i>Continue Annotating
+                </a>
+                <a href="{{ url_for('export_project', project_id=project.id) }}"
+                   class="btn btn-success">
+                    <i class="fas fa-download me-2"></i>Export Data
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Overview -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Annotation Progress
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold">Overall Progress</span>
+                                <span class="badge bg-primary fs-6">{{ progress.progress_percentage|round(1) }}%</span>
+                            </div>
+                            <div class="progress" style="height: 20px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" 
+                                     style="width: {{ progress.progress_percentage }}%"
+                                     aria-valuenow="{{ progress.progress_percentage }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ progress.progress_percentage|round(1) }}%
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="stat-item">
+                                    <h4 class="text-success">{{ progress.annotated_sentences }}</h4>
+                                    <p class="text-muted mb-0">Completed</p>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="stat-item">
+                                    <h4 class="text-warning">{{ progress.total_sentences - progress.annotated_sentences }}</h4>
+                                    <p class="text-muted mb-0">Remaining</p>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="stat-item">
+                                    <h4 class="text-info">{{ progress.total_sentences }}</h4>
+                                    <p class="text-muted mb-0">Total</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="position-relative d-inline-block">
+                                <svg width="120" height="120" class="circular-progress">
+                                    <circle cx="60" cy="60" r="50" fill="none" stroke="#e9ecef" stroke-width="8"></circle>
+                                    <circle cx="60" cy="60" r="50" fill="none" stroke="#0d6efd" stroke-width="8"
+                                            stroke-dasharray="{{ 314 * progress.progress_percentage / 100 }} 314"
+                                            stroke-linecap="round" transform="rotate(-90 60 60)"></circle>
+                                </svg>
+                                <div class="position-absolute top-50 start-50 translate-middle">
+                                    <h4 class="mb-0">{{ progress.progress_percentage|round(0)|int }}%</h4>
+                                    <small class="text-muted">Complete</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Project Information -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tags me-2"></i>Entity Types
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for tag in project.entity_tags %}
+                        {% if tag is mapping %}
+                            <span class="badge fs-6 py-2 px-3" style="background-color: {{ tag.color }}; color: white;">{{ tag.name }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary fs-6 py-2 px-3">{{ tag }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Project Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Created:</strong>
+                    <span class="text-muted">{{ project.created_at.split(' ')[0] if project.created_at else 'Unknown' }}</span>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Last Updated:</strong>
+                    <span class="text-muted">{{ project.updated_at.split(' ')[0] if project.updated_at else 'Unknown' }}</span>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Total Sentences:</strong>
+                    <span class="badge bg-info">{{ progress.total_sentences }}</span>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Entity Types:</strong>
+                    <span class="badge bg-secondary">{{ project.entity_tags|length }}</span>
+                </div>
+                
+                {% if progress.progress_percentage > 0 %}
+                <div class="mb-3">
+                    <strong>Estimated Time Remaining:</strong>
+                    <span class="text-muted">
+                        {% set remaining = progress.total_sentences - progress.annotated_sentences %}
+                        {% if remaining > 0 %}
+                            ~{{ (remaining * 2)|round(0)|int }} minutes
+                        {% else %}
+                            Complete!
+                        {% endif %}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <div class="d-grid">
+                            <a href="{{ url_for('annotate', project_id=project.id, sentence_index=0) }}" 
+                               class="btn btn-primary">
+                                <i class="fas fa-play me-2"></i>Start from Beginning
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="d-grid">
+                            {% if progress.annotated_sentences > 0 %}
+                                <a href="{{ url_for('annotate', project_id=project.id, sentence_index=progress.annotated_sentences) }}" 
+                                   class="btn btn-success">
+                                    <i class="fas fa-forward me-2"></i>Continue from Last
+                                </a>
+                            {% else %}
+                                <button class="btn btn-outline-secondary" disabled>
+                                    <i class="fas fa-forward me-2"></i>No Progress Yet
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="dropdown d-grid">
+                            <button class="btn btn-info dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-download me-2"></i>Export Data
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('export_project', project_id=project.id) }}">
+                                        <i class="fas fa-file-code me-2"></i>JSON Format
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('export_project_format', project_id=project.id, format_type='jsonl') }}">
+                                        <i class="fas fa-list me-2"></i>JSONL Format
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('export_project_format', project_id=project.id, format_type='conll') }}">
+                                        <i class="fas fa-align-left me-2"></i>CoNLL Format
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#hfUploadModal">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>Upload to HF Hub
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editTagsModal">
+                                <i class="fas fa-edit me-2"></i>Edit Entity Tags
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">
+                                <i class="fas fa-trash me-2"></i>Delete Project
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <div class="d-grid">
+                            <a href="{{ url_for('index') }}"
+                               class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Projects
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Edit Entity Tags Modal -->
+<div class="modal fade" id="editTagsModal" tabindex="-1" aria-labelledby="editTagsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editTagsModalLabel">
+                    <i class="fas fa-edit me-2"></i>Edit Entity Tags
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editTagsForm">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Modify entity tag names and colors. Existing annotations will be updated if tag names change.
+                    </div>
+
+                    <div id="editTagsContainer" class="row g-2">
+                        <!-- Tags will be populated by JavaScript -->
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addNewTag()">
+                            <i class="fas fa-plus me-1"></i>Add New Tag
+                        </button>
+                    </div>
+
+                    <!-- Hidden inputs -->
+                    <input type="hidden" id="editEntityConfig" name="entity_config">
+                    <input type="hidden" id="tagMappings" name="tag_mappings">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveTagsBtn">
+                        <i class="fas fa-save me-2"></i>Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Project Modal -->
+<div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-labelledby="deleteProjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteProjectModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Delete Project
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Warning:</strong> This action cannot be undone!
+                </div>
+
+                <p>Are you sure you want to delete the project <strong>"{{ project.name }}"</strong>?</p>
+
+                <p>This will permanently delete:</p>
+                <ul>
+                    <li>All project data and settings</li>
+                    <li>All sentences ({{ progress.total_sentences }} total)</li>
+                    <li>All annotations ({{ progress.annotated_sentences }} completed)</li>
+                </ul>
+
+                <div class="form-group mt-3">
+                    <label for="confirmProjectName" class="form-label">
+                        Type the project name <strong>"{{ project.name }}"</strong> to confirm:
+                    </label>
+                    <input type="text" class="form-control" id="confirmProjectName"
+                           placeholder="Enter project name to confirm deletion">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn" disabled onclick="deleteProject()">
+                    <i class="fas fa-trash me-2"></i>Delete Project
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hugging Face Upload Modal -->
+<div class="modal fade" id="hfUploadModal" tabindex="-1" aria-labelledby="hfUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="hfUploadModalLabel">
+                    <i class="fas fa-cloud-upload-alt me-2"></i>Upload to Hugging Face Hub
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="hfUploadForm">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Upload your annotated dataset directly to Hugging Face Hub for easy sharing and collaboration.
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="hf_token" class="form-label">Hugging Face Token *</label>
+                        <input type="password" class="form-control" id="hf_token" name="hf_token" required
+                               placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                        <div class="form-text">
+                            Get your token from <a href="https://huggingface.co/settings/tokens" target="_blank">Hugging Face Settings</a>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="dataset_name" class="form-label">Dataset Name *</label>
+                        <input type="text" class="form-control" id="dataset_name" name="dataset_name" required
+                               placeholder="my-ner-dataset" value="{{ project.name.lower().replace(' ', '-') }}">
+                        <div class="form-text">
+                            Must be unique in your Hugging Face account
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"
+                                  placeholder="Describe your dataset...">{{ project.description }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="private" name="private">
+                            <label class="form-check-label" for="private">
+                                Make dataset private
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Note:</strong> This will upload your annotations to Hugging Face Hub.
+                        Make sure you have the rights to share this data publicly (unless marked private).
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success" id="uploadBtn">
+                        <i class="fas fa-cloud-upload-alt me-2"></i>Upload Dataset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+document.getElementById('hfUploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const uploadBtn = document.getElementById('uploadBtn');
+    const originalText = uploadBtn.innerHTML;
+
+    // Show loading state
+    uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+    uploadBtn.disabled = true;
+
+    try {
+        const formData = new FormData(this);
+        const response = await fetch(`/upload_to_hf/{{ project.id }}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('hfUploadModal'));
+            modal.hide();
+
+            // Show professional success notification
+            const message = `Dataset successfully uploaded to Hugging Face Hub<br>
+                <strong>Repository:</strong> <a href="${result.url}" target="_blank" class="toast-link">${result.repo_id}</a><br>
+                <small>Click the link above to view your dataset</small>`;
+
+            window.notifications.success('Upload Complete!', message, { duration: 8000 });
+
+            // Reset form
+            this.reset();
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        // Show professional error notification
+        window.notifications.error('Upload Failed', error.message);
+    } finally {
+        // Reset button
+        uploadBtn.innerHTML = originalText;
+        uploadBtn.disabled = false;
+    }
+});
+
+// Entity Tags Editing
+let originalTags = {{ project.entity_tags|tojson }};
+let currentTags = JSON.parse(JSON.stringify(originalTags)); // Deep copy
+
+function initializeEditTagsModal() {
+    const container = document.getElementById('editTagsContainer');
+    container.innerHTML = '';
+
+    currentTags.forEach((tag, index) => {
+        addTagToEditContainer(tag, index);
+    });
+}
+
+function addTagToEditContainer(tag, index) {
+    const container = document.getElementById('editTagsContainer');
+    const tagName = tag.name || tag;
+    const tagColor = tag.color || '#007bff';
+
+    const tagDiv = document.createElement('div');
+    tagDiv.className = 'col-md-6 mb-2';
+    tagDiv.innerHTML = `
+        <div class="card p-2">
+            <div class="d-flex align-items-center gap-2">
+                <input type="color"
+                       class="form-control form-control-color"
+                       id="editColor_${index}"
+                       value="${tagColor}"
+                       style="width: 40px; height: 30px;"
+                       onchange="updateTagColor(${index}, this.value)">
+                <input type="text"
+                       class="form-control"
+                       id="editName_${index}"
+                       value="${tagName}"
+                       onchange="updateTagName(${index}, this.value)">
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeTag(${index})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    container.appendChild(tagDiv);
+}
+
+function updateTagName(index, newName) {
+    if (currentTags[index]) {
+        currentTags[index].name = newName;
+    }
+}
+
+function updateTagColor(index, newColor) {
+    if (currentTags[index]) {
+        currentTags[index].color = newColor;
+    }
+}
+
+function removeTag(index) {
+    currentTags.splice(index, 1);
+    initializeEditTagsModal();
+}
+
+function addNewTag() {
+    const newTag = {
+        name: 'NEW_TAG',
+        color: '#' + Math.floor(Math.random()*16777215).toString(16)
+    };
+    currentTags.push(newTag);
+    initializeEditTagsModal();
+}
+
+// Initialize modal when it's shown
+document.getElementById('editTagsModal').addEventListener('show.bs.modal', function() {
+    currentTags = JSON.parse(JSON.stringify(originalTags));
+    initializeEditTagsModal();
+});
+
+// Handle form submission
+document.getElementById('editTagsForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const saveBtn = document.getElementById('saveTagsBtn');
+    const originalText = saveBtn.innerHTML;
+
+    // Show loading state
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+    saveBtn.disabled = true;
+
+    try {
+        // Generate tag mappings for renamed tags
+        const tagMappings = {};
+        originalTags.forEach((originalTag, index) => {
+            const originalName = originalTag.name || originalTag;
+            const currentName = currentTags[index]?.name;
+            if (currentName && originalName !== currentName) {
+                tagMappings[originalName] = currentName;
+            }
+        });
+
+        const formData = new FormData();
+        formData.append('entity_config', JSON.stringify(currentTags));
+        formData.append('tag_mappings', JSON.stringify(tagMappings));
+
+        const response = await fetch(`/edit_entity_tags/{{ project.id }}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Close modal and show success notification
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editTagsModal'));
+            modal.hide();
+
+            window.notifications.success('Tags Updated!', 'Entity tags have been successfully updated. The page will refresh to show changes.');
+
+            // Reload page after a short delay to show the notification
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        window.notifications.error('Update Failed', error.message);
+    } finally {
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    }
+});
+
+// Project Deletion
+document.getElementById('confirmProjectName').addEventListener('input', function() {
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const projectName = '{{ project.name }}';
+    confirmBtn.disabled = this.value !== projectName;
+});
+
+async function deleteProject() {
+    const deleteBtn = document.getElementById('confirmDeleteBtn');
+    const originalText = deleteBtn.innerHTML;
+
+    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Deleting...';
+    deleteBtn.disabled = true;
+
+    try {
+        const response = await fetch(`/delete_project/{{ project.id }}`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Show success notification and redirect
+            window.notifications.success('Project Deleted', 'Project has been permanently deleted. Redirecting to home page...');
+
+            // Redirect after showing notification
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        window.notifications.error('Deletion Failed', error.message);
+        deleteBtn.innerHTML = originalText;
+        deleteBtn.disabled = false;
+    }
+}
+</script>
+
+{% endblock %}

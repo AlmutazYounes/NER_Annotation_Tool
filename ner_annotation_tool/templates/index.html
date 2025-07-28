@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - DataLabel Pro{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Projects Section -->
+    {% if projects %}
+    <div class="row">
+        <div class="col-12">
+            <h2 style="font-weight: 700; color: var(--gray-800); margin-bottom: var(--space-6);">
+                <i class="fas fa-folder-open me-3" style="color: var(--primary-500);"></i>
+                Your Projects
+            </h2>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for project in projects %}
+        <div class="col-md-6 col-xl-4 mb-4">
+            <div class="project-card">
+                <div class="card-body p-4">
+                    <!-- Project Header -->
+                    <div class="project-meta">
+                        <div class="project-status active">
+                            <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
+                            Active
+                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ project.created_at.split(' ')[0] if project.created_at else 'Unknown' }}
+                        </small>
+                    </div>
+
+                    <!-- Project Title -->
+                    <h5 style="font-weight: 700; color: var(--gray-900); margin-bottom: var(--space-2);">
+                        {{ project.name }}
+                    </h5>
+
+                    <!-- Project Description -->
+                    <p style="color: var(--gray-600); font-size: 0.875rem; line-height: 1.5; margin-bottom: var(--space-4);">
+                        {{ project.description or 'No description provided' }}
+                    </p>
+
+                    <!-- Entity Tags -->
+                    <div style="margin-bottom: var(--space-4);">
+                        <h6 style="color: var(--gray-700); font-size: 0.8125rem; font-weight: 600; margin-bottom: var(--space-2); text-transform: uppercase; letter-spacing: 0.5px;">
+                            Entity Types
+                        </h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for tag in project.entity_tags[:3] %}
+                                {% if tag is mapping %}
+                                    <span class="entity-tag" style="background-color: {{ tag.color }}; color: white; font-size: 0.75rem;">
+                                        {{ tag.name }}
+                                    </span>
+                                {% else %}
+                                    <span class="entity-tag" style="background-color: var(--gray-500); color: white; font-size: 0.75rem;">
+                                        {{ tag }}
+                                    </span>
+                                {% endif %}
+                            {% endfor %}
+                            {% if project.entity_tags|length > 3 %}
+                                <span style="color: var(--gray-500); font-size: 0.75rem; padding: var(--space-1) var(--space-2);">
+                                    +{{ project.entity_tags|length - 3 }} more
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Project Actions -->
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('annotate', project_id=project.id, sentence_index=0) }}"
+                           class="btn btn-primary">
+                            <i class="fas fa-edit me-2"></i>Start Annotating
+                        </a>
+                        <div class="btn-group w-100" role="group">
+                            <a href="{{ url_for('project_detail', project_id=project.id) }}"
+                               class="btn btn-outline-primary">
+                                <i class="fas fa-cog me-2"></i>Manage
+                            </a>
+                            <a href="{{ url_for('project_analytics', project_id=project.id) }}"
+                               class="btn btn-outline-secondary">
+                                <i class="fas fa-chart-bar me-2"></i>Analytics
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+        {% else %}
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-folder-open fa-5x text-muted"></i>
+                </div>
+                <h3 class="text-muted mb-3">No Projects Yet</h3>
+                <p class="text-muted mb-4">
+                    Get started by creating your first NER annotation project.
+                    Upload your text data and define custom entity tags to begin annotating.
+                </p>
+                <a href="{{ url_for('setup') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-plus me-2"></i>Create Your First Project
+                </a>
+            </div>
+        {% endif %}
+
+    <!-- Quick Stats Section -->
+    {% if projects %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Quick Stats</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="stat-item">
+                                <h3 class="text-primary">{{ projects|length }}</h3>
+                                <p class="text-muted mb-0">Total Projects</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-item">
+                                <h3 class="text-success">{{ projects|selectattr('entity_tags')|list|length }}</h3>
+                                <p class="text-muted mb-0">Active Projects</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-item">
+                                <h3 class="text-info">{{ projects|map(attribute='entity_tags')|map('length')|sum }}</h3>
+                                <p class="text-muted mb-0">Total Entity Types</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-item">
+                                <h3 class="text-warning">
+                                    {{ (projects|map(attribute='entity_tags')|map('length')|sum / projects|length)|round(1) if projects else 0 }}
+                                </h3>
+                                <p class="text-muted mb-0">Avg. Entities per Project</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

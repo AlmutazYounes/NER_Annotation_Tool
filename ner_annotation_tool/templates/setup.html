@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}Setup New Project - NER Annotation Tool{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-plus-circle me-2"></i>Create New NER Project
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('create_project') }}" enctype="multipart/form-data" id="projectForm">
+                    <!-- Project Information -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-info-circle me-2"></i>Project Information
+                        </h5>
+                        
+                        <div class="mb-3">
+                            <label for="project_name" class="form-label">Project Name *</label>
+                            <input type="text" class="form-control" id="project_name" name="project_name" 
+                                   placeholder="Enter a descriptive name for your project" required>
+                            <div class="form-text">Choose a unique name that describes your annotation task.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="project_description" class="form-label">Description</label>
+                            <textarea class="form-control" id="project_description" name="project_description" 
+                                      rows="3" placeholder="Describe the purpose and scope of this annotation project"></textarea>
+                            <div class="form-text">Optional: Provide context about what you're annotating and why.</div>
+                        </div>
+                    </div>
+
+                    <!-- Entity Configuration -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-tags me-2"></i>Entity Configuration
+                        </h5>
+                        
+                        <div class="mb-3">
+                            <label for="entity_tags" class="form-label">Entity Tags *</label>
+                            <input type="text" class="form-control" id="entity_tags" name="entity_tags"
+                                   placeholder="PERSON, ORGANIZATION, LOCATION, DATE" required>
+                            <div class="form-text">
+                                Enter entity types separated by commas. You'll assign colors to each tag below.
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Tag Configuration -->
+                        <div id="tagConfiguration" class="mt-3" style="display: none;">
+                            <h6>Configure Entity Colors:</h6>
+                            <div id="tagColorContainer" class="row g-2"></div>
+                        </div>
+
+                        <!-- Hidden input to store tag configuration -->
+                        <input type="hidden" id="entity_config" name="entity_config">
+                    </div>
+
+                    <!-- LLM Configuration -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-robot me-2"></i>AI Assistant Configuration
+                        </h5>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="llm_enabled" name="llm_enabled">
+                                <label class="form-check-label" for="llm_enabled">
+                                    <strong>Enable AI-powered annotation suggestions</strong>
+                                </label>
+                            </div>
+                            <div class="form-text">
+                                When enabled, you can ask an AI assistant to suggest entity annotations for sentences.
+                            </div>
+                        </div>
+
+                        <div id="llmConfiguration" class="mt-3" style="display: none;">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="llm_api_key" class="form-label">OpenAI API Key</label>
+                                    <input type="password" class="form-control" id="llm_api_key" name="llm_api_key"
+                                           placeholder="sk-...">
+                                    <div class="form-text">Your OpenAI API key for accessing GPT models.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="llm_model" class="form-label">Model</label>
+                                    <select class="form-select" id="llm_model" name="llm_model">
+                                        <optgroup label="GPT-4.1 Series">
+                                            <option value="gpt-4.1">GPT-4.1 ($2.00/$8.00 per 1M tokens)</option>
+                                            <option value="gpt-4.1-mini" selected>GPT-4.1 Mini ($0.40/$1.60 per 1M tokens)</option>
+                                            <option value="gpt-4.1-nano">GPT-4.1 Nano ($0.10/$0.40 per 1M tokens)</option>
+                                        </optgroup>
+                                        <optgroup label="GPT-4.5 Series">
+                                            <option value="gpt-4.5-preview">GPT-4.5 Preview ($75.00/$150.00 per 1M tokens)</option>
+                                        </optgroup>
+                                        <optgroup label="GPT-4o Series">
+                                            <option value="gpt-4o">GPT-4o ($2.50/$10.00 per 1M tokens)</option>
+                                            <option value="gpt-4o-mini">GPT-4o Mini ($0.15/$0.60 per 1M tokens)</option>
+                                        </optgroup>
+                                        <optgroup label="o-Series (Reasoning Models)">
+                                            <option value="o1">o1 ($15.00/$60.00 per 1M tokens)</option>
+                                            <option value="o1-pro">o1 Pro ($150.00/$600.00 per 1M tokens)</option>
+                                            <option value="o1-mini">o1 Mini ($1.10/$4.40 per 1M tokens)</option>
+                                            <option value="o3">o3 ($2.00/$8.00 per 1M tokens)</option>
+                                            <option value="o3-pro">o3 Pro ($20.00/$80.00 per 1M tokens)</option>
+                                            <option value="o3-mini">o3 Mini ($1.10/$4.40 per 1M tokens)</option>
+                                            <option value="o4-mini">o4 Mini ($1.10/$4.40 per 1M tokens)</option>
+                                        </optgroup>
+                                    </select>
+                                    <div class="form-text">Choose the OpenAI model for generating suggestions.</div>
+                                </div>
+                                <div class="col-12">
+                                    <label for="llm_custom_instructions" class="form-label">Custom Instructions (Optional)</label>
+                                    <textarea class="form-control" id="llm_custom_instructions" name="llm_custom_instructions"
+                                              rows="3" placeholder="Additional instructions for the AI assistant..."></textarea>
+                                    <div class="form-text">
+                                        Optional: Provide specific instructions to guide the AI's annotation behavior.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info mt-3">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> The AI will automatically generate a system message instructing it to extract entities matching your defined entity tags and return them in a structured format.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Upload -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-upload me-2"></i>Data Upload
+                        </h5>
+                        
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Upload Text File *</label>
+                            <input type="file" class="form-control" id="file" name="file" 
+                                   accept=".txt,.csv" required>
+                            <div class="form-text">
+                                Supported formats: .txt (plain text) or .csv (with text in a column).
+                                Maximum file size: 16MB.
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>File Requirements:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li><strong>.txt files:</strong> Plain text with sentences separated by periods, exclamation marks, or question marks.</li>
+                                <li><strong>.csv files:</strong> Should contain text data in a column named 'text', 'sentence', 'content', or the first column.</li>
+                                <li>Text will be automatically split into individual sentences for annotation.</li>
+                            </ul>
+                        </div>
+                        
+                        <!-- File Preview -->
+                        <div id="filePreview" class="mt-3" style="display: none;">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6>File Information:</h6>
+                                    <div id="fileInfo"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                            <i class="fas fa-rocket me-2"></i>Create Project & Start Annotating
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Projects
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Section -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-question-circle me-2"></i>Getting Started Guide
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-file-alt fa-3x text-primary mb-2"></i>
+                            <h6>1. Prepare Your Data</h6>
+                            <p class="text-muted small">
+                                Upload a .txt file with sentences or a .csv file with text data.
+                                The tool will automatically split text into individual sentences.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-tags fa-3x text-success mb-2"></i>
+                            <h6>2. Define Entity Types</h6>
+                            <p class="text-muted small">
+                                Specify the types of entities you want to annotate (e.g., names, places, organizations).
+                                These become the labels you can assign to text spans.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-mouse-pointer fa-3x text-info mb-2"></i>
+                            <h6>3. Start Annotating</h6>
+                            <p class="text-muted small">
+                                Select text spans in sentences and assign entity labels.
+                                Navigate through sentences and track your progress.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const entityTagsInput = document.getElementById('entity_tags');
+    const tagPreview = document.getElementById('tagPreview');
+    const tagContainer = document.getElementById('tagContainer');
+    const fileInput = document.getElementById('file');
+    const filePreview = document.getElementById('filePreview');
+    const fileInfo = document.getElementById('fileInfo');
+    const llmEnabledCheckbox = document.getElementById('llm_enabled');
+    const llmConfiguration = document.getElementById('llmConfiguration');
+
+    // Default colors for entity types
+    const defaultColors = [
+        '#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6',
+        '#1abc9c', '#e67e22', '#34495e', '#e91e63', '#795548'
+    ];
+
+    // Entity tags configuration
+    entityTagsInput.addEventListener('input', function() {
+        const tags = this.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+        const tagConfiguration = document.getElementById('tagConfiguration');
+        const tagColorContainer = document.getElementById('tagColorContainer');
+
+        if (tags.length > 0) {
+            // Show configuration section
+            tagConfiguration.style.display = 'block';
+
+            // Generate color pickers for each tag
+            tagColorContainer.innerHTML = tags.map((tag, index) => `
+                <div class="col-md-6 col-lg-4 mb-2">
+                    <div class="card p-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="color"
+                                   class="form-control form-control-color"
+                                   id="color_${index}"
+                                   value="${defaultColors[index % defaultColors.length]}"
+                                   style="width: 40px; height: 30px;">
+                            <span class="badge"
+                                  id="badge_${index}"
+                                  style="background-color: ${defaultColors[index % defaultColors.length]}; color: white;">
+                                ${tag}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Add event listeners to color inputs
+            tags.forEach((tag, index) => {
+                const colorInput = document.getElementById(`color_${index}`);
+                const badge = document.getElementById(`badge_${index}`);
+
+                colorInput.addEventListener('input', function() {
+                    badge.style.backgroundColor = this.value;
+                    updateEntityConfig();
+                });
+            });
+
+            updateEntityConfig();
+        } else {
+            tagConfiguration.style.display = 'none';
+        }
+    });
+
+    function updateEntityConfig() {
+        const tags = entityTagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+        const entityConfig = tags.map((tag, index) => {
+            const colorInput = document.getElementById(`color_${index}`);
+            return {
+                name: tag,
+                color: colorInput ? colorInput.value : defaultColors[index % defaultColors.length]
+            };
+        });
+
+        document.getElementById('entity_config').value = JSON.stringify(entityConfig);
+    }
+
+    // File preview
+    fileInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            const fileType = file.name.split('.').pop().toLowerCase();
+            
+            fileInfo.innerHTML = `
+                <div class="row">
+                    <div class="col-sm-6">
+                        <strong>File:</strong> ${file.name}
+                    </div>
+                    <div class="col-sm-6">
+                        <strong>Size:</strong> ${fileSize} MB
+                    </div>
+                    <div class="col-sm-6">
+                        <strong>Type:</strong> ${fileType.toUpperCase()}
+                    </div>
+                    <div class="col-sm-6">
+                        <strong>Status:</strong> 
+                        <span class="badge bg-success">Ready to upload</span>
+                    </div>
+                </div>
+            `;
+            filePreview.style.display = 'block';
+        } else {
+            filePreview.style.display = 'none';
+        }
+    });
+
+    // LLM configuration toggle
+    llmEnabledCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            llmConfiguration.style.display = 'block';
+        } else {
+            llmConfiguration.style.display = 'none';
+        }
+    });
+
+    // Form validation
+    document.getElementById('projectForm').addEventListener('submit', function(e) {
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Project...';
+        submitBtn.disabled = true;
+    });
+});
+</script>
+{% endblock %}
