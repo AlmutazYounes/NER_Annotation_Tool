@@ -219,7 +219,7 @@ This is a standalone annotation tool. To extend functionality:
 
 ## License
 
-This project is provided as-is for educational and research purposes.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Sample Data
 
